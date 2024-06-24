@@ -5,7 +5,7 @@ import time
 from torch_geometric_signed_directed.data import load_directed_real_data
 
 import utils
-from sigmanet import SigMaNet_link_prediction_one_laplacian
+from sigmanet_link import SigMaNet_link_prediction_one_laplacian
 
 # select cuda device if available
 cuda_device = 0

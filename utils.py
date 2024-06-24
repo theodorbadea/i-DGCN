@@ -11,16 +11,113 @@ from torch_geometric.utils import negative_sampling, to_undirected, to_scipy_spa
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import eigsh
 import scipy.stats as st
-
+import csv
 from typing import Optional, Callable
 import torch_geometric.utils
 import torch_geometric.utils.num_nodes
 from torch_geometric_signed_directed.data import SignedData
 from torch_geometric_signed_directed.data.signed import SDGNN_real_data
 from torch_geometric_signed_directed.data import SSSNET_real_data
+from sklearn.preprocessing import normalize
+import pandas as pd
 
 import flipping
 import antiparallel
+import graph_to_egonet_features as g2f
+
+def write_csv_header(filename, isscore=False):
+    with open(filename, 'w', newline='') as file:
+        writer = csv.writer(file)
+        if isscore == True:
+            field = ["Graph", "Density", "Weights norm.", \
+             "0.1 AN", "0.1 W", "0.1 TPR", "0.2 AN", "0.2 W", "0.2 TPR", "0.5 AN", "0.5 W", "0.5 TPR", "1 AN", "1 W", "1 TPR", "TPR AUC 1", "TPR AUC 100"]   
+        else:
+            field = ["Graph", "Density", "Features norm.", "Weights norm.", "Sym. renorm.", "K", "Num. layers E/D", "Hidden dim.", "Lr", "Epochs", "Loss", "Time", \
+             "0.1 AN", "0.1 W", "0.1 TPR", "0.2 AN", "0.2 W", "0.2 TPR", "0.5 AN", "0.5 W", "0.5 TPR", "1 AN", "1 W", "1 TPR", "TPR AUC 1", "TPR AUC 100"]  
+        writer.writerow(field)
+
+
+def setup_ext(requested_signals=['f_amount_in', 'f_amount_out', 'f_nr_trans_in', 'f_nr_trans_out'], weights_normalization=None, signals_normalization=None):
+    base_name = './tmp/Libra_bank_3months_graph'
+    # Extract egonet features from graph
+    egonet_file_name = './tmp/libra_egonet_features.csv'
+    train_graph_file = base_name + '.csv'
+    
+    train_df_graph = pd.read_csv(train_graph_file)
+    
+    try:                                                           # read from precomputed file if available
+        train_node_features_ego = pd.read_csv(egonet_file_name)
+    except FileNotFoundError:                                      # if file not exists, create it (possibly time consuming operation)
+        FULL_egonets = True                                        # build full egonet, as for undirected graphs
+        IN_egonets = False                                         # normal value is False, as out egonets are implicit in Networkx
+                                                                   # it is used only if FULL_egonets is False
+        summable_attr = ["nr_alerts", "nr_reports"]
+
+        train_node_features_ego = g2f.graph_to_egonet_features(train_df_graph, FULL_egonets=FULL_egonets, IN_egonets=IN_egonets, \
+                            summable_attributes=summable_attr, verbose=False)
+    
+        # save feature file as csv
+        train_node_features_ego.to_csv(egonet_file_name, index=False)
+
+    G = nx.from_pandas_edgelist(df=train_df_graph, source='id_source', target='id_destination',
+                            edge_attr=True, create_using=nx.DiGraph)
+
+    Aa = train_df_graph.loc[train_df_graph['nr_alerts'] > 0]
+    anomalous_nodes = set()
+    for node in Aa['id_source'].values:
+        anomalous_nodes.add(node)
+    for node in Aa['id_destination'].values:
+        anomalous_nodes.add(node)
+
+    labels = torch.zeros(G.number_of_nodes())
+    for anomalous_node in anomalous_nodes:
+        labels[anomalous_node] = 1
+
+    weighted_labels = np.zeros(nx.number_of_nodes(G))
+    for node in range(nx.number_of_nodes(G)):
+        weighted_labels[node] += train_node_features_ego["nr_alerts"][node]
+
+    w = nx.get_edge_attributes(G, 'cum_amount')
+    if weights_normalization != None:
+        if weights_normalization == 'l1' or weights_normalization == 'l2' or weights_normalization == 'max':
+            w_values = torch.tensor(list(w.values())).reshape(-1, 1)
+            w_values = torch.tensor(normalize(w_values, weights_normalization, axis=0).flatten())
+            w = {k: v for k, v in zip(w, w_values)}
+        elif weights_normalization == 'log10':
+            w_values = torch.tensor(list(w.values())).reshape(-1, 1)
+            w_values = torch.log10(1 + w_values).flatten()
+            w = {k: v for k, v in zip(w, w_values)}
+        elif weights_normalization == 'log2':
+            w_values = torch.tensor(list(w.values())).reshape(-1, 1)
+            w_values = torch.log2(1 + w_values).flatten()
+            w = {k: v for k, v in zip(w, w_values)}
+        elif weights_normalization == 'log':
+            w_values = torch.tensor(list(w.values())).reshape(-1, 1)
+            w_values = torch.log(1 + w_values).flatten()
+            w = {k: v for k, v in zip(w, w_values)}
+
+    nx.set_edge_attributes(G, w, 'weight')
+    
+    dict_signals = {}
+    for requested in requested_signals:
+        dict_signals[requested] = train_node_features_ego[requested]
+    signals = pd.DataFrame(dict_signals)
+    signals = torch.tensor(signals.values)
+    signals = signals.to(torch.float32)
+    if signals_normalization != None:
+        if signals_normalization == 'l1' or signals_normalization == 'l2' or signals_normalization == 'max':
+            signals = torch.tensor(normalize(signals, signals_normalization, axis=0))
+        elif signals_normalization == 'log10':
+            signals = torch.log10(1 + signals)
+        elif signals_normalization == 'log2':
+            signals = torch.log2(1 + signals)
+        elif signals_normalization == 'log':
+            signals = torch.log(1 + signals)
+    adj = nx.adjacency_matrix(G, weight='weight') 
+    adj_sym = 0.5*(adj + adj.transpose())
+    adj_skew_sym = 0.5*(adj - adj.transpose())
+
+    return G, adj, adj_sym, adj_skew_sym, signals, labels, weighted_labels
 
 def sparse_mx_to_torch_sparse_tensor(sparse_mx):
     """Convert a scipy sparse matrix to a torch sparse tensor."""
@@ -36,6 +133,52 @@ def acc(pred, label):
     correct = pred.eq(label).sum().item()
     acc = correct / len(pred)
     return acc
+
+def evaluate(labels, weighted_labels, error):
+    TPR_milestones_perc = [0.1, 0.2, 0.5, 1]  # percentage in all nodes where to compute TPR values
+    AUC_milestones_perc = [1, 100]            # same, for AUC computation
+    
+    nbNodes = len(labels)
+
+    sorted_indices = torch.argsort(torch.sum(error, dim=1), descending=True)
+    sorted_labels = labels[sorted_indices]
+    sorted_weighted_labels = weighted_labels[sorted_indices]
+
+    anomalous_nodes = np.cumsum(np.array(sorted_labels))
+    tpr = np.cumsum(np.array(sorted_weighted_labels)) / sum(sorted_weighted_labels)
+
+    p_perc = np.array(TPR_milestones_perc)/100*nbNodes
+    p_perc = p_perc.astype('int')
+    
+    nodes = []
+    weights = []
+    TPR = []
+    TPR_AUC = []
+    print("True positives detected in first", *TPR_milestones_perc, "% anomalies")
+    for i in range(len(p_perc)):
+        print("{} nodes, with weight {:.4f} and TPR {:.4f}".format(anomalous_nodes[np.array(p_perc[i]).astype('int')], tpr[np.array(p_perc[i]).astype('int')]*sum(sorted_weighted_labels), tpr[np.array(p_perc[i]).astype('int')]), end=' ') 
+        print("")
+        nodes.append(str(anomalous_nodes[np.array(p_perc[i]).astype('int')]))
+        weights.append(str(tpr[np.array(p_perc[i]).astype('int')]*sum(sorted_weighted_labels)))
+        TPR.append(str(tpr[np.array(p_perc[i]).astype('int')]))
+
+    a_perc = np.array(AUC_milestones_perc)/100*nbNodes
+    a_perc = a_perc.astype('int')
+    print("TPR AUC in first", *AUC_milestones_perc, "% anomalies")
+    for i in range(len(a_perc)):
+        print("{:.4f}".format(np.average(tpr[:a_perc[i]])), end=' ')
+        TPR_AUC.append(str(np.average(tpr[:a_perc[i]])))
+    
+    data = [nodes[0], weights[0], TPR[0], nodes[1], weights[1], TPR[1], nodes[2], weights[2], TPR[2], nodes[3], weights[3], TPR[3], TPR_AUC[0], TPR_AUC[1]]
+    print("")
+    print("")
+
+    # import matplotlib.pyplot as plt
+    # plt.plot(tpr)
+    # plt.title(graph_name + ' Alerts: True positive rate')
+    # plt.grid()
+    # plt.show()
+    return data
 
 def in_out_degree(edge_index, size, weight=None):
     if weight is None:
@@ -500,23 +643,33 @@ def intensityLaplacian(row, col, size, edge_weight=None, renormalize=True, lambd
     else:
         A = coo_matrix((edge_weight, (row, col)), shape=(size, size), dtype=np.float32)
     nb_nodes = size
-
-    Acsr = A.tocsr()
-    Acsc = A.tocsc()
-    successors_gaw = np.zeros((nb_nodes, 1))
-    predecessors_gaw = np.zeros((nb_nodes, 1))
-    for x in range(size):
-        succ_x = Acsr.getrow(x)
-        s_weights = [s for s in succ_x.toarray().squeeze().tolist() if s > 0]
+    successors_gaw = np.zeros((size, 1))
+    predecessors_gaw = np.zeros((size, 1))
+    
+    graph = nx.from_scipy_sparse_array(A, create_using=nx.DiGraph)
+    for x in graph:
+        succ_x = graph.successors(x)
+        s_weights = [graph[x][s]['weight'] for s in succ_x]
         if len(s_weights) > 0:
             successors_gaw[x] = st.gmean(s_weights)
-        pred_x = Acsc.getcol(x)
-        p_weights = [p for p in pred_x.toarray().squeeze().tolist() if p > 0]
+        pred_x = graph.predecessors(x)
+        p_weights = [graph[p][x]['weight'] for p in pred_x]
         if len(p_weights) > 0:
             predecessors_gaw[x] = st.gmean(p_weights)
+    # Acsr = A.tocsr()
+    # Acsc = A.tocsc()
+    # successors_gaw = np.zeros((nb_nodes, 1))
+    # predecessors_gaw = np.zeros((nb_nodes, 1))
+    # for x in range(size):
+    #     succ_x = Acsr.getrow(x)
+    #     s_weights = [s for s in succ_x.toarray().squeeze().tolist() if s > 0]
+    #     if len(s_weights) > 0:
+    #         successors_gaw[x] = st.gmean(s_weights)
+    #     pred_x = Acsc.getcol(x)
+    #     p_weights = [p for p in pred_x.toarray().squeeze().tolist() if p > 0]
+    #     if len(p_weights) > 0:
+    #         predecessors_gaw[x] = st.gmean(p_weights)
 
-
-    graph = nx.from_scipy_sparse_array(A, create_using=nx.DiGraph)
     data = []
     rows = []
     cols = []

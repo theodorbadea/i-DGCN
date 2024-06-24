@@ -5,7 +5,7 @@ import time
 from torch_geometric_signed_directed.data import load_directed_real_data
 
 import utils
-from magnet import ChebNet_Edge
+from magnet_link import ChebNet_Edge
 
 # select cuda device if available
 cuda_device = 0
