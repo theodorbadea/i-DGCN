@@ -3,6 +3,8 @@ import random
 import torch
 import time
 from torch_geometric_signed_directed.data import load_directed_real_data
+from scipy.sparse import coo_matrix
+import networkx as nx
 
 import utils
 from idgcn_link import ChebNet_Edge
@@ -59,8 +61,10 @@ for task in ['existence']:
                     edges = datasets[i]['graph']
                     weights = datasets[i]['weights']
                     f_node, e_node = edges[0], edges[1]
+                    A = coo_matrix((weights, (f_node, e_node)), shape=(size, size), dtype=np.float32)
 
-                    L = utils.intensityLaplacian(f_node, e_node, size, edge_weight=weights, renormalize=True, lambda_max=2.0)
+                    G = nx.from_scipy_sparse_array(A, create_using=nx.DiGraph)
+                    L = utils.intensityLaplacian(G, renormalize=True, lambda_max=2.0)
                     L_real = utils.cnv_sparse_mat_to_coo_tensor(L)
 
                     X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)
@@ -165,9 +169,11 @@ for task in ['existence']:
                 for i in range(10):
                     it_epochs += 1
                     edges = datasets[i]['graph']
-                    f_node, e_node = edges[0], edges[1]
-                    
-                    L = utils.intensityLaplacian(f_node, e_node, size, edge_weight=datasets[i]['weights'], renormalize=True, lambda_max=2.0)
+                    f_node, e_node = edges[0], edges[1] 
+                    A = coo_matrix((weights, (f_node, e_node)), shape=(size, size), dtype=np.float32)
+
+                    G = nx.from_scipy_sparse_array(A, create_using=nx.DiGraph)
+                    L = utils.intensityLaplacian(G, renormalize=True, lambda_max=2.0)
                     L_real = utils.cnv_sparse_mat_to_coo_tensor(L)
 
                     X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)
@@ -245,10 +251,14 @@ for task in ['existence']:
     log_testing_err_overall = ['' for _ in range(10)]
     log_testing_acc_overall = ['' for _ in range(10)]
     for i in range(10):
+        weights = datasets[i]['weights']
         edges = datasets[i]['graph']
         f_node, e_node = edges[0], edges[1]
         
-        L = utils.intensityLaplacian(f_node, e_node, size, edge_weight=datasets[i]['weights'], renormalize=True, lambda_max=2.0)
+        A = coo_matrix((weights, (f_node, e_node)), shape=(size, size), dtype=np.float32)
+
+        G = nx.from_scipy_sparse_array(A, create_using=nx.DiGraph)
+        L = utils.intensityLaplacian(G, renormalize=True, lambda_max=2.0)
         L_real = utils.cnv_sparse_mat_to_coo_tensor(L)
         
         X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)

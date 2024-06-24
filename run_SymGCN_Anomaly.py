@@ -11,8 +11,8 @@ requested_signals=['f_amount_in', 'f_amount_out']
 weights_normalization = 'log'
 signals_normalization = None
 
-hidden_dimension = 4
-num_layers = 2
+hidden_dimension = 2
+num_layers = 1
         
 G, _, _, _, signals, labels, weighted_labels = utils.setup_ext(graph_name=graph_name, \
                                                                 requested_signals=requested_signals, \
@@ -38,7 +38,7 @@ best_tpr_02 = 0
 best_tpr_05 = 0
 best_tpr_1 = 0
 
-utils.write_csv_header('full_SymGCN.csv')
+utils.write_csv_header('./tmp/res/Anomaly_full_rounds/full_SymGCN.csv')
 for lr in [0.001, 0.005, 0.01, 0.05]:
     if lr == 0.001:
         strLr = '0.001'
@@ -57,7 +57,7 @@ for lr in [0.001, 0.005, 0.01, 0.05]:
     tpr_05 = []
     tpr_1 = []
     auc = []
-    csvFileName =  'tmp/Libra_SymGCN/' + graph_name + ' ' + str(hidden_dimension) + ' ' + strLr + '_SymGCN.csv'
+    csvFileName =  './tmp/res/Anomaly_' + graph_name + '/' + str(hidden_dimension) + ' ' + strLr + '_SymGCN.csv'
     utils.write_csv_header(csvFileName)
     for round in range(1, 11):
         csvData = [graph_name, str(nx.number_of_edges(G) / nx.number_of_nodes(G)), signals_normalization if signals_normalization != None else 'No', \
@@ -118,7 +118,7 @@ for lr in [0.001, 0.005, 0.01, 0.05]:
         with open(csvFileName, 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(csvData)
-        with open('full_SymGCN.csv', 'a', newline='') as file:
+        with open('./tmp/res/Anomaly_full_rounds/full_SymGCN.csv', 'a', newline='') as file:
             writer = csv.writer(file)
             writer.writerow(csvData)
 
@@ -135,7 +135,7 @@ for lr in [0.001, 0.005, 0.01, 0.05]:
         best_tpr_1 = sum(tpr_1) / 10
 
 
-with open('full_SymGCN.csv', 'a', newline='') as file:
+with open('./tmp/res/Anomaly_full_rounds/full_SymGCN.csv', 'a', newline='') as file:
     writer = csv.writer(file)
     csvData = [graph_name, str(nx.number_of_edges(G) / nx.number_of_nodes(G)), signals_normalization if signals_normalization != None else 'No', \
                 weights_normalization if weights_normalization != None else 'No', 'Yes', \

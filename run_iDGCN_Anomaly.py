@@ -21,9 +21,7 @@ signals = torch.tensor(signals, dtype=torch.float32)
 size_in = signals.shape[1]
 size_out = signals.shape[1]
 
-A = nx.to_scipy_sparse_array(G, format="coo")
-row, col, data = A.row, A.col, A.data
-L = utils.intensityLaplacian(row, col, G.number_of_nodes(), data, renormalize=True, lambda_max=2.0)
+L = utils.intensityLaplacian(G, renormalize=True, lambda_max=2.0)
 L = utils.cnv_sparse_mat_to_coo_tensor(L)
 
 best_auc = 0

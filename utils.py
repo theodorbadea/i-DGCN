@@ -637,47 +637,30 @@ def cnv_sparse_mat_to_coo_tensor(sp_mat):
     else:
         raise TypeError(f'ERROR: The dtype of {sp_mat} is {sp_mat.dtype}, not been applied in implemented models.')
 
-def intensityLaplacian(row, col, size, edge_weight=None, renormalize=True, lambda_max=2.0):
-    if edge_weight is None:
-        A = coo_matrix((np.ones(len(row)), (row, col)), shape=(size, size), dtype=np.float32)
-    else:
-        A = coo_matrix((edge_weight, (row, col)), shape=(size, size), dtype=np.float32)
-    nb_nodes = size
+def intensityLaplacian(G, renormalize=True, lambda_max=2.0):
+    size = G.number_of_nodes()
+
     successors_gaw = np.zeros((size, 1))
     predecessors_gaw = np.zeros((size, 1))
     
-    graph = nx.from_scipy_sparse_array(A, create_using=nx.DiGraph)
-    for x in graph:
-        succ_x = graph.successors(x)
-        s_weights = [graph[x][s]['weight'] for s in succ_x]
+    for x in G:
+        succ_x = G.successors(x)
+        s_weights = [G[x][s]['weight'] for s in succ_x]
         if len(s_weights) > 0:
             successors_gaw[x] = st.gmean(s_weights)
-        pred_x = graph.predecessors(x)
-        p_weights = [graph[p][x]['weight'] for p in pred_x]
+        pred_x = G.predecessors(x)
+        p_weights = [G[p][x]['weight'] for p in pred_x]
         if len(p_weights) > 0:
             predecessors_gaw[x] = st.gmean(p_weights)
-    # Acsr = A.tocsr()
-    # Acsc = A.tocsc()
-    # successors_gaw = np.zeros((nb_nodes, 1))
-    # predecessors_gaw = np.zeros((nb_nodes, 1))
-    # for x in range(size):
-    #     succ_x = Acsr.getrow(x)
-    #     s_weights = [s for s in succ_x.toarray().squeeze().tolist() if s > 0]
-    #     if len(s_weights) > 0:
-    #         successors_gaw[x] = st.gmean(s_weights)
-    #     pred_x = Acsc.getcol(x)
-    #     p_weights = [p for p in pred_x.toarray().squeeze().tolist() if p > 0]
-    #     if len(p_weights) > 0:
-    #         predecessors_gaw[x] = st.gmean(p_weights)
 
     data = []
     rows = []
     cols = []
     mapping = {}
     k = 0
-    for x in graph:
-        successors_x = graph.successors(x)
-        predecessors_x = graph.predecessors(x)
+    for x in G:
+        successors_x = G.successors(x)
+        predecessors_x = G.predecessors(x)
         for s in successors_x:
             pos1 = mapping.get((x, s))
             pos2 = mapping.get((s, x))
@@ -721,7 +704,7 @@ def intensityLaplacian(row, col, size, edge_weight=None, renormalize=True, lambd
     data = np.array(data)
     rows = np.array(rows)
     cols = np.array(cols)
-    A = coo_matrix((data, (rows, cols)), shape=(nb_nodes, nb_nodes), dtype=np.float32)
+    A = coo_matrix((data, (rows, cols)), shape=(size, size), dtype=np.float32)
     
     diag = coo_matrix( (np.ones(size), (np.arange(size), np.arange(size))), shape=(size, size), dtype=np.float32)
     if renormalize:

@@ -16,8 +16,8 @@ requested_signals=['f_amount_in', 'f_amount_out']
 weights_normalization = 'log'
 signals_normalization = None
 
-hidden_dimension = 4
-num_layers = 2
+hidden_dimension = 2
+num_layers = 1
         
 G, _, _, _, signals, labels, weighted_labels = utils.setup_ext(requested_signals=requested_signals, \
                                                                 weights_normalization=weights_normalization, \
