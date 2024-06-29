@@ -44,11 +44,6 @@ for task in ['existence']:
 
                 datasets = utils.link_class_split_new(data, prob_val=0.05, prob_test=0.15, splits=10, task=task)
 
-                avg_acc_overall = [0.0 for _ in range(10)]
-                avg_err_overall = [100000000000.0 for _ in range(10)]
-                validation_error_model_acc = [0.0 for _ in range(10)]
-                validation_acc_model_err = [100000000000.0 for _ in range(10)]
-                models = []
                 for i in range(10):
                     it_epochs += 1
                     log_str_full = ''
@@ -56,7 +51,6 @@ for task in ['existence']:
                     # get hermitian laplacian
                     ########################################
                     edges = datasets[i]['graph']
-                    weights = datasets[i]['weights']
                     f_node, e_node = edges[0], edges[1]
 
                     L = utils.hermitian_decomp_sparse(f_node, e_node, size, edge_weight=datasets[i]['weights'])
@@ -67,7 +61,7 @@ for task in ['existence']:
                         L_img.append(utils.sparse_mx_to_torch_sparse_tensor(L[ind_L].imag).to(device) )
                         L_real.append(utils.sparse_mx_to_torch_sparse_tensor(L[ind_L].real).to(device) )
 
-                    X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)
+                    X_real = utils.in_out_degree(edges, size, datasets[i]['weights']).to(device)
                     X_img = X_real.clone()
 
                     ########################################
@@ -138,7 +132,6 @@ for task in ['existence']:
                             torch.save(model.state_dict(), log_path + '/model_acc'+str(i)+current_params+'.t7')
                         else:
                             early_stopping += 1
-                    models.append(model)
                 torch.cuda.empty_cache()
 
     err_model_best_average_loss = 100000000000.0
@@ -180,7 +173,7 @@ for task in ['existence']:
                         L_img.append(utils.sparse_mx_to_torch_sparse_tensor(L[ind_L].imag).to(device) )
                         L_real.append(utils.sparse_mx_to_torch_sparse_tensor(L[ind_L].real).to(device) )
 
-                    X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)
+                    X_real = utils.in_out_degree(edges, size, datasets[i]['weights']).to(device)
                     X_img = X_real.clone()
 
                     y_val   = datasets[i]['val']['label']
@@ -266,7 +259,7 @@ for task in ['existence']:
             L_img.append(utils.sparse_mx_to_torch_sparse_tensor(L[ind_L].imag).to(device) )
             L_real.append(utils.sparse_mx_to_torch_sparse_tensor(L[ind_L].real).to(device) )
                         
-        X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)
+        X_real = utils.in_out_degree(edges, size, datasets[i]['weights']).to(device)
         X_img = X_real.clone()
 
         y_val   = datasets[i]['val']['label']

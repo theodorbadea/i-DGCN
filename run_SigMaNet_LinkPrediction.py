@@ -44,11 +44,6 @@ for task in ['existence']: # 'direction']:
 
                 datasets = utils.link_class_split_new(data, prob_val=0.05, prob_test=0.15, splits=10, task=task)
 
-                avg_acc_overall = [0.0 for _ in range(10)]
-                avg_err_overall = [100000000000.0 for _ in range(10)]
-                validation_error_model_acc = [0.0 for _ in range(10)]
-                validation_acc_model_err = [100000000000.0 for _ in range(10)]
-                models = []
                 for i in range(10):
                     it_epochs += 1
                     log_str_full = ''
@@ -56,13 +51,12 @@ for task in ['existence']: # 'direction']:
                     # get hermitian laplacian
                     ########################################
                     edges = datasets[i]['graph']
-                    weights = datasets[i]['weights']
                     
-                    X_real = utils.in_out_degree(edges, size, weights).to(device)
+                    X_real = utils.in_out_degree(edges, size, datasets[i]['weights']).to(device)
                     X_img = X_real.clone()
 
                     edge_index, norm_real, norm_imag = utils.process_magnetic_laplacian(edge_index=edges, gcn=True, net_flow=True,\
-                                                            x_real=X_real, edge_weight=weights, normalization='sym', return_lambda_max=False)
+                                                            x_real=X_real, edge_weight=datasets[i]['weights'], normalization='sym', return_lambda_max=False)
                     ########################################
                     # initialize model and load dataset
                     ########################################
@@ -133,7 +127,6 @@ for task in ['existence']: # 'direction']:
                             torch.save(model.state_dict(), log_path + '/model_acc'+str(i)+current_params+'.t7')
                         else:
                             early_stopping += 1
-                    models.append(model)
                 torch.cuda.empty_cache()
 
     err_model_best_average_loss = 100000000000.0
@@ -165,9 +158,8 @@ for task in ['existence']: # 'direction']:
                 for i in range(10):
                     it_epochs += 1
                     edges = datasets[i]['graph']
-                    f_node, e_node = edges[0], edges[1]
 
-                    X_real = utils.in_out_degree(edges, size, weights).to(device)
+                    X_real = utils.in_out_degree(edges, size, datasets[i]['weights']).to(device)
                     X_img = X_real.clone()
 
                     y_val   = datasets[i]['val']['label']
@@ -175,7 +167,7 @@ for task in ['existence']: # 'direction']:
                     val_index = datasets[i]['val']['edges'].to(device)
 
                     edge_index, norm_real, norm_imag = utils.process_magnetic_laplacian(edge_index=edges, gcn=True, net_flow=True,\
-                                                            x_real=X_real, edge_weight=weights, normalization = 'sym', return_lambda_max = False)
+                                                            x_real=X_real, edge_weight=datasets[i]['weights'], normalization = 'sym', return_lambda_max = False)
                     
                     model = SigMaNet_link_prediction_one_laplacian(K=1, num_features=2, hidden=num_filter, label_dim=num_class_link,\
                             i_complex = False,  layer=layer, follow_math=True, gcn=True, net_flow=True, unwind=True, edge_index=edge_index,\
@@ -252,7 +244,7 @@ for task in ['existence']: # 'direction']:
     for i in range(10):
         edges = datasets[i]['graph']        
                         
-        X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)
+        X_real = utils.in_out_degree(edges, size, datasets[i]['weights']).to(device)
         X_img = X_real.clone()
 
         y_val   = datasets[i]['val']['label']
@@ -264,7 +256,7 @@ for task in ['existence']: # 'direction']:
         test_index = datasets[i]['test']['edges'].to(device)
 
         edge_index, norm_real, norm_imag = utils.process_magnetic_laplacian(edge_index=edges, gcn=True, net_flow=True,\
-                                                            x_real=X_real, edge_weight=weights, normalization = 'sym', return_lambda_max = False)
+                                                            x_real=X_real, edge_weight=datasets[i]['weights'], normalization = 'sym', return_lambda_max = False)
 
         model = SigMaNet_link_prediction_one_laplacian(K=1, num_features=2, hidden=best_error_model_num_filter, label_dim=num_class_link,\
                             i_complex = False,  layer=best_error_model_layer, follow_math=True, gcn=True, net_flow=True, unwind=True, edge_index=edge_index,\

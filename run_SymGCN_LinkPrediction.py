@@ -44,11 +44,6 @@ for task in ['existence']:
 
                 datasets = utils.link_class_split_new(data, prob_val=0.05, prob_test=0.15, splits=10, task=task)
 
-                avg_acc_overall = [0.0 for _ in range(10)]
-                avg_err_overall = [100000000000.0 for _ in range(10)]
-                validation_error_model_acc = [0.0 for _ in range(10)]
-                validation_acc_model_err = [100000000000.0 for _ in range(10)]
-                models = []
                 for i in range(10):
                     it_epochs += 1
                     log_str_full = ''
@@ -56,13 +51,12 @@ for task in ['existence']:
                     # get symmetrized Laplacian
                     ########################################
                     edges = datasets[i]['graph']
-                    weights = datasets[i]['weights']
                     f_node, e_node = edges[0], edges[1]
 
-                    L = utils.compute_scaled_normalized_laplacian(f_node, e_node, size, edge_weight=weights, renormalize=True, lambda_max=2.0)
+                    L = utils.compute_scaled_normalized_laplacian(f_node, e_node, size, edge_weight=datasets[i]['weights'], renormalize=True, lambda_max=2.0)
                     L_real = utils.cnv_sparse_mat_to_coo_tensor(L)
 
-                    X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)
+                    X_real = utils.in_out_degree(edges, size, datasets[i]['weights']).to(device)
 
                     ########################################
                     # initialize model and load dataset
@@ -132,7 +126,6 @@ for task in ['existence']:
                             torch.save(model.state_dict(), log_path + '/model_acc'+str(i)+current_params+'.t7')
                         else:
                             early_stopping += 1
-                    models.append(model)
                 torch.cuda.empty_cache()
 
     err_model_best_average_loss = 100000000000.0
@@ -169,7 +162,7 @@ for task in ['existence']:
                     L = utils.compute_scaled_normalized_laplacian(f_node, e_node, size, edge_weight=datasets[i]['weights'], renormalize=True, lambda_max=2.0)
                     L_real = utils.cnv_sparse_mat_to_coo_tensor(L)
                     
-                    X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)
+                    X_real = utils.in_out_degree(edges, size, datasets[i]['weights']).to(device)
                     
                     y_val   = datasets[i]['val']['label']
                     y_val   = y_val.long().to(device)
@@ -246,10 +239,11 @@ for task in ['existence']:
     for i in range(10):
         edges = datasets[i]['graph']
         f_node, e_node = edges[0], edges[1]
+        
         L = utils.compute_scaled_normalized_laplacian(f_node, e_node, size, edge_weight=datasets[i]['weights'], renormalize=True, lambda_max=2.0)
         L_real = utils.cnv_sparse_mat_to_coo_tensor(L)
         
-        X_real = utils.in_out_degree(edges, size,  datasets[i]['weights'] ).to(device)
+        X_real = utils.in_out_degree(edges, size, datasets[i]['weights']).to(device)
 
         y_val   = datasets[i]['val']['label']
         y_test  = datasets[i]['test']['label']
