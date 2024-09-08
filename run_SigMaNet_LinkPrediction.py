@@ -13,12 +13,12 @@ device = torch.device("cuda:%d" % cuda_device if torch.cuda.is_available() else 
 
 epochs = 3000
 dropout = 0.5
-dataset_name = 'telegram'
+dataset_name = 'bitcoin_otc'
 
 nb_epochs = [0 for _ in range(360)]
 it_epochs = -1
-for task in ['existence']: # 'direction']:
-    num_class_link = 2
+for task in ['three_class_digraph']: # 'existence']:
+    num_class_link = 3
     for lr in [0.001, 0.005, 0.01, 0.05]:
         for num_filter in [16, 32, 64]:
             for layer in [2, 4, 8]:

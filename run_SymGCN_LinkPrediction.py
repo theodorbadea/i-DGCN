@@ -13,12 +13,12 @@ device = torch.device("cuda:%d" % cuda_device if torch.cuda.is_available() else 
 
 epochs = 3000
 dropout = 0.5
-dataset_name = 'telegram'
+dataset_name = 'bitcoin_otc'
 
 nb_epochs = [0 for _ in range(360)]
 it_epochs = -1
-for task in ['existence']:
-    num_class_link = 2
+for task in ['three_class_digraph']: # 'existence'
+    num_class_link = 3
     for lr in [0.001, 0.005, 0.01, 0.05]:
         for num_filter in [16 , 32, 64]:
             for layer in [2, 4, 8]:
@@ -61,7 +61,7 @@ for task in ['existence']:
                     ########################################
                     # initialize model and load dataset
                     ########################################
-                    model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=num_filter, K=1, label_dim=2, layer=layer, activation=True, dropout=dropout)
+                    model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=num_filter, K=1, label_dim=num_class_link, layer=layer, activation=True, dropout=dropout)
 
                     model = model.to(device)
                     opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
@@ -168,7 +168,7 @@ for task in ['existence']:
                     y_val   = y_val.long().to(device)
                     val_index = datasets[i]['val']['edges'].to(device)
 
-                    model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=num_filter, K=1, label_dim=2, layer=layer, activation=True, dropout=dropout)
+                    model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=num_filter, K=1, label_dim=num_class_link, layer=layer, activation=True, dropout=dropout)
                     model = model.to(device)
                     model.load_state_dict(torch.load(log_path + '/model_err'+str(i)+current_params+'.t7'))
                     model.eval()
@@ -177,7 +177,7 @@ for task in ['existence']:
                     i_validation_error_model_acc[i] = utils.acc(pred_label, y_val)
                     i_validation_error_model_loss[i] = torch.nn.functional.nll_loss(out, y_val).detach().item()
 
-                    model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=num_filter, K=1, label_dim=2, layer=layer, activation=True, dropout=dropout)
+                    model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=num_filter, K=1, label_dim=num_class_link, layer=layer, activation=True, dropout=dropout)
                     model = model.to(device)
                     model.load_state_dict(torch.load(log_path + '/model_acc'+str(i)+current_params+'.t7'))
                     model.eval()
@@ -253,7 +253,7 @@ for task in ['existence']:
         val_index = datasets[i]['val']['edges'].to(device)
         test_index = datasets[i]['test']['edges'].to(device)
 
-        model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=best_error_model_num_filter, K=1, label_dim=2, layer=best_error_model_layer, activation=True, dropout=dropout)
+        model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=best_error_model_num_filter, K=1, label_dim=num_class_link, layer=best_error_model_layer, activation=True, dropout=dropout)
         model = model.to(device)
         model.load_state_dict(torch.load(log_path + '/model_err'+str(i)+best_error_model_params+'.t7'))
         model.eval()
@@ -272,7 +272,7 @@ for task in ['existence']:
             file.write(log_testing_err_overall[i])
             file.write('\n')
 
-        model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=best_acc_model_num_filter, K=1, label_dim=2, layer=best_acc_model_layer, activation=True, dropout=dropout)
+        model = ChebNet_Edge(in_c=X_real.size(-1), L_norm_real=L_real, num_filter=best_acc_model_num_filter, K=1, label_dim=num_class_link, layer=best_acc_model_layer, activation=True, dropout=dropout)
         model = model.to(device)
         model.load_state_dict(torch.load(log_path + '/model_acc'+str(i)+best_acc_model_params+'.t7'))
         model.eval()
